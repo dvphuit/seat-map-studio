@@ -31,7 +31,10 @@
     },
     "api_endpoints": [],
     "business_rules": [],
-    "features": [],
+    "features": [
+        "Canvas Interaction (Click-outside auto-select)",
+        "Undo/Redo System (Shapes, Terrain, Text, Seats)"
+    ],
     "knowledge_items": {
         "patterns": [],
         "gotchas": [],
