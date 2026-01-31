@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Stage, Layer } from 'react-konva';
+import { useStageStore } from '../../stores/stageStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useCanvasZoom } from '../../hooks/useCanvasZoom';
 import { useCanvasPan } from '../../hooks/useCanvasPan';
@@ -27,7 +28,12 @@ import { ToolPreviews } from './ToolPreviews';
 export const EditorCanvas: React.FC = () => {
     const containerRef = useRef<HTMLDivElement>(null);
     const stageInstanceRef = useRef<Konva.Stage>(null);
-    const { zoom, pan, clearSelection, activeTool, isPreview } = useEditorStore();
+    const { zoom, pan, clearSelection, activeTool, isPreview, setTool, activeStageId } = useEditorStore();
+
+    const stageWidth = useStageStore((state) => activeStageId ? state.stages[activeStageId]?.width : null);
+    const stageDepth = useStageStore((state) => activeStageId ? state.stages[activeStageId]?.depth : null);
+
+    const stageDimensions = (stageWidth && stageDepth) ? { width: stageWidth, depth: stageDepth } : null;
 
     useEffect(() => {
         if (stageInstanceRef.current) {
@@ -101,6 +107,32 @@ export const EditorCanvas: React.FC = () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleStageClick = (e: KonvaEventObject<any>) => {
         if (isPreview) return;
+
+        // Reset to Select tool if clicked strictly outside the Stage Bounds (the black void)
+        if (stageDimensions) {
+            const stage = e.target.getStage();
+            if (stage) {
+                const pointer = stage.getPointerPosition();
+                if (pointer) {
+                    const transform = stage.getAbsoluteTransform().copy();
+                    transform.invert();
+                    const pos = transform.point(pointer);
+
+                    // Check if point is outside the active stage dimensions
+                    const isOutside = pos.x < 0 || pos.y < 0 || pos.x > stageDimensions.width || pos.y > stageDimensions.depth;
+
+                    if (isOutside) {
+                        if (activeTool !== 'select') {
+                            setTool('select');
+                        } else {
+                            // If tool is already select, and we click outside, clear selection
+                            clearSelection();
+                        }
+                        return; // Stop further processing
+                    }
+                }
+            }
+        }
 
         handleTerrainClick(e);
         handleTextClick(e);

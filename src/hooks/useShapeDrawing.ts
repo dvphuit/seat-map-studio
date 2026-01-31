@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import { useEditorStore } from '../stores/editorStore';
 import { useStageStore } from '../stores/stageStore';
+import { useHistoryStore } from '../stores/historyStore';
 import type { RectElement, CircleElement, StarElement, ArrowElement, LineElement } from '../types';
 
 /** Discriminated union for drawing preview - allows proper type narrowing */
@@ -88,6 +89,7 @@ const isValidShape = (shape: DrawingShape): boolean => {
 export const useShapeDrawing = () => {
     const { activeTool, activeStageId } = useEditorStore();
     const { addElement } = useStageStore();
+    const { pushState } = useHistoryStore();
 
     const [isDrawing, setIsDrawing] = useState(false);
     const [startPos, setStartPos] = useState({ x: 0, y: 0 });
@@ -131,13 +133,14 @@ export const useShapeDrawing = () => {
         if (!isDrawing || !drawingShape || !activeStageId) return;
 
         if (isValidShape(drawingShape)) {
+            pushState();
             // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Store addElement has loose Omit types
             addElement(activeStageId, drawingShape as any);
         }
 
         setIsDrawing(false);
         setDrawingShape(null);
-    }, [isDrawing, drawingShape, activeStageId, addElement]);
+    }, [isDrawing, drawingShape, activeStageId, addElement, pushState]);
 
     return {
         drawingShape,

@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import { useStageStore } from '../stores/stageStore';
+import { useHistoryStore } from '../stores/historyStore';
 import { useActivityLogStore } from '../stores/activityLogStore';
 import { useSelectors } from './useSelectors';
 import { useSnapping } from './useSnapping';
@@ -8,6 +9,7 @@ import { useSnapping } from './useSnapping';
 export const useTextTool = () => {
     const { activeTool, activeStage } = useSelectors();
     const { addElement } = useStageStore();
+    const { pushState } = useHistoryStore();
     const { getSnappedPos } = useSnapping();
 
     const handleClick = useCallback((e: KonvaEventObject<MouseEvent>) => {
@@ -25,6 +27,8 @@ export const useTextTool = () => {
         const text = window.prompt("Enter label text:", "New Label");
         if (!text) return;
 
+        pushState(); // Save state before adding
+
         const snapped = getSnappedPos(pointer.x, pointer.y);
 
         addElement(activeStage.id, {
@@ -38,7 +42,7 @@ export const useTextTool = () => {
         });
         useActivityLogStore.getState().addLog('Added text label', 'info');
 
-    }, [activeTool, activeStage, getSnappedPos, addElement]);
+    }, [activeTool, activeStage, getSnappedPos, addElement, pushState]);
 
     return { handleClick };
 };

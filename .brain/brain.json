@@ -1,0 +1,40 @@
+{
+    "meta": {
+        "schema_version": "1.1.0",
+        "awf_version": "3.3.0"
+    },
+    "project": {
+        "name": "seat-map-studio",
+        "type": "frontend-web-app",
+        "status": "initialization"
+    },
+    "tech_stack": {
+        "frontend": {
+            "framework": "React 19",
+            "build_tool": "Vite 7",
+            "language": "TypeScript",
+            "styling": "TailwindCSS 3.4",
+            "state_management": "Zustand",
+            "graphics": "Konva, React-Konva",
+            "validation": "Zod"
+        },
+        "backend": {
+            "framework": "None (Client-side only for now)"
+        },
+        "database": {
+            "type": "None"
+        }
+    },
+    "database_schema": {
+        "tables": [],
+        "relationships": []
+    },
+    "api_endpoints": [],
+    "business_rules": [],
+    "features": [],
+    "knowledge_items": {
+        "patterns": [],
+        "gotchas": [],
+        "conventions": []
+    }
+}

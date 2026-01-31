@@ -1,6 +1,7 @@
 import { useCallback, useState, useEffect } from 'react';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import { useStageStore } from '../stores/stageStore';
+import { useHistoryStore } from '../stores/historyStore';
 import { useActivityLogStore } from '../stores/activityLogStore';
 import { useSelectors } from './useSelectors';
 import { useSnapping } from './useSnapping';
@@ -8,6 +9,7 @@ import { useSnapping } from './useSnapping';
 export const useTerrainDrawing = () => {
     const { activeTool, activeStage } = useSelectors();
     const { addElement } = useStageStore();
+    const { pushState } = useHistoryStore();
     const { getSnappedPos } = useSnapping();
 
     const [points, setPoints] = useState<number[]>([]);
@@ -71,6 +73,8 @@ export const useTerrainDrawing = () => {
             return;
         }
 
+        pushState(); // Save state before adding
+
         addElement(activeStage.id, {
             type: 'terrain',
             x: 0,
@@ -84,7 +88,7 @@ export const useTerrainDrawing = () => {
         useActivityLogStore.getState().addLog('Added terrain to stage', 'info');
 
         setPoints([]);
-    }, [activeStage, points, addElement]);
+    }, [activeStage, points, addElement, pushState]);
 
     // Handle Enter/Esc
     useEffect(() => {
