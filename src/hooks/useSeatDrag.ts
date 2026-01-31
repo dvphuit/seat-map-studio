@@ -9,7 +9,7 @@ import { useEditorStore } from '../stores/editorStore';
 export const useSeatDrag = (selectedSeatIds: string[]) => {
     const { batchUpdate } = useSeatStore();
     const { pushState } = useHistoryStore();
-    const { getSnappedPos } = useSnapping();
+    const { getSnappedPos, clampToStage } = useSnapping();
     const { activeStageId } = useEditorStore();
 
     // Store initial positions of ALL selected seats when drag starts
@@ -58,14 +58,13 @@ export const useSeatDrag = (selectedSeatIds: string[]) => {
                 const node = layer.findOne(`#${id}`);
                 const start = initialPositionsRef.current[id];
                 if (node && start) {
-                    node.position({
-                        x: start.x + dx,
-                        y: start.y + dy
-                    });
+                    // Clamp follower positions as well
+                    const newPos = clampToStage(start.x + dx, start.y + dy);
+                    node.position(newPos);
                 }
             });
         }
-    }, [selectedSeatIds, getSnappedPos]);
+    }, [selectedSeatIds, getSnappedPos, clampToStage]);
 
     const handleDragEnd = useCallback((e: KonvaEventObject<DragEvent>) => {
         if (!isDraggingRef.current || !activeStageId) return;
@@ -89,15 +88,14 @@ export const useSeatDrag = (selectedSeatIds: string[]) => {
         selectedSeatIds.forEach(id => {
             const start = initialPositionsRef.current[id];
             if (start) {
-                updates[id] = {
-                    x: start.x + dx,
-                    y: start.y + dy
-                };
+                // Apply same clamping to the final store update
+                const finalPos = clampToStage(start.x + dx, start.y + dy);
+                updates[id] = finalPos;
             }
         });
 
         batchUpdate(activeStageId, updates);
-    }, [selectedSeatIds, getSnappedPos, batchUpdate, activeStageId]);
+    }, [selectedSeatIds, getSnappedPos, clampToStage, batchUpdate, activeStageId]);
 
     return { handleDragStart, handleDragMove, handleDragEnd };
 };

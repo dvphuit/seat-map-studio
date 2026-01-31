@@ -33,10 +33,14 @@
     "business_rules": [],
     "features": [
         "Canvas Interaction (Click-outside auto-select)",
-        "Undo/Redo System (Shapes, Terrain, Text, Seats)"
+        "Undo/Redo System (Shapes, Terrain, Text, Seats)",
+        "Stage Boundary Constraints (Clamping)",
+        "Real-time Grid Snapping (Drawing & Moving)"
     ],
     "knowledge_items": {
-        "patterns": [],
+        "patterns": [
+            "Centralized Snapping/Clamping (useSnapping hook)"
+        ],
         "gotchas": [],
         "conventions": []
     }

@@ -4,6 +4,7 @@ import { useEditorStore } from '../stores/editorStore';
 import { useStageStore } from '../stores/stageStore';
 import { useHistoryStore } from '../stores/historyStore';
 import type { RectElement, CircleElement, StarElement, ArrowElement, LineElement } from '../types';
+import { useSnapping } from './useSnapping';
 
 /** Discriminated union for drawing preview - allows proper type narrowing */
 export type DrawingShape =
@@ -90,19 +91,20 @@ export const useShapeDrawing = () => {
     const { activeTool, activeStageId } = useEditorStore();
     const { addElement } = useStageStore();
     const { pushState } = useHistoryStore();
+    const { getSnappedPos } = useSnapping();
 
     const [isDrawing, setIsDrawing] = useState(false);
     const [startPos, setStartPos] = useState({ x: 0, y: 0 });
     const [drawingShape, setDrawingShape] = useState<DrawingShape | null>(null);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Konva event typing
-    const getPointerPos = (e: KonvaEventObject<any>) => {
+    const getPointerPos = useCallback((e: KonvaEventObject<any>) => {
         const stage = e.target.getStage();
         if (!stage) return { x: 0, y: 0 };
-        const transform = stage.getAbsoluteTransform().copy();
-        transform.invert();
-        return transform.point(stage.getPointerPosition() || { x: 0, y: 0 });
-    };
+        const pointer = stage.getRelativePointerPosition();
+        if (!pointer) return { x: 0, y: 0 };
+        return getSnappedPos(pointer.x, pointer.y);
+    }, [getSnappedPos]);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Konva event typing
     const handleMouseDown = useCallback((e: KonvaEventObject<any>) => {
@@ -116,7 +118,7 @@ export const useShapeDrawing = () => {
         if (newShape) {
             setDrawingShape(newShape);
         }
-    }, [activeTool]);
+    }, [activeTool, getPointerPos]);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Konva event typing
     const handleMouseMove = useCallback((e: KonvaEventObject<any>) => {
@@ -127,7 +129,7 @@ export const useShapeDrawing = () => {
         const dy = currentPos.y - startPos.y;
 
         setDrawingShape(prev => prev ? updateShapeGeometry(prev, dx, dy) : null);
-    }, [isDrawing, drawingShape, startPos]);
+    }, [isDrawing, drawingShape, startPos, getPointerPos]);
 
     const handleMouseUp = useCallback(() => {
         if (!isDrawing || !drawingShape || !activeStageId) return;

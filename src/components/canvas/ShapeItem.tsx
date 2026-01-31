@@ -1,9 +1,10 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { Rect, Circle, Star, Arrow, Line, Transformer } from 'react-konva';
 import Konva from 'konva';
 import { useStageStore } from '../../stores/stageStore';
 import { useHistoryStore } from '../../stores/historyStore';
 import type { RectElement, CircleElement, StarElement, ArrowElement, LineElement, StageElement } from '../../types';
+import { useSnapping } from '../../hooks/useSnapping';
 
 interface ShapeItemProps {
     shape: RectElement | CircleElement | StarElement | ArrowElement | LineElement;
@@ -25,6 +26,8 @@ export const ShapeItem: React.FC<ShapeItemProps> = ({
     const shapeRef = useRef<Konva.Shape | Konva.Group>(null);
     const trRef = useRef<Konva.Transformer>(null);
 
+    const { getSnappedPos } = useSnapping();
+
     useEffect(() => {
         if (isSelected && trRef.current && shapeRef.current) {
             trRef.current.nodes([shapeRef.current]);
@@ -32,12 +35,13 @@ export const ShapeItem: React.FC<ShapeItemProps> = ({
         }
     }, [isSelected]);
 
-    const handleDragEnd = (e: Konva.KonvaEventObject<DragEvent>) => {
+    const handleDragEnd = useCallback((e: Konva.KonvaEventObject<DragEvent>) => {
+        const snapped = getSnappedPos(e.target.x(), e.target.y());
         useStageStore.getState().updateElement(activeStageId, shape.id, {
-            x: e.target.x(),
-            y: e.target.y(),
+            x: snapped.x,
+            y: snapped.y,
         });
-    };
+    }, [activeStageId, shape.id, getSnappedPos]);
 
     const handleTransformEnd = () => {
         if (shapeRef.current) {
@@ -63,6 +67,15 @@ export const ShapeItem: React.FC<ShapeItemProps> = ({
         scaleX: shape.scaleX,
         scaleY: shape.scaleY,
         draggable: activeTool === 'select',
+        dragBoundFunc: (pos: { x: number; y: number }) => {
+            const stage = shapeRef.current?.getStage();
+            if (!stage) return pos;
+
+            const transform = stage.getAbsoluteTransform().copy().invert();
+            const localPos = transform.point(pos);
+            const snappedLocal = getSnappedPos(localPos.x, localPos.y);
+            return stage.getAbsoluteTransform().point(snappedLocal);
+        },
         onClick: (e: Konva.KonvaEventObject<MouseEvent>) => {
             if (activeTool === 'select') {
                 e.cancelBubble = true;

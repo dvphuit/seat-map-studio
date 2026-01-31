@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Circle } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type { Seat as SeatType } from '../../types';
+import Konva from 'konva';
 
 import { useTierStore } from '../../stores/tierStore';
+import { useSnapping } from '../../hooks/useSnapping';
 
 interface SeatProps {
     seat: SeatType;
@@ -30,7 +32,9 @@ export const Seat: React.FC<SeatProps> = React.memo(({
     onDragMove,
     onDragEnd
 }) => {
+    const seatRef = useRef<Konva.Circle>(null);
     const tiers = useTierStore(state => state.tiers);
+    const { getSnappedPos } = useSnapping();
     const tier = tiers.find(t => t.id === seat.tier);
     const tierColor = tier?.color || '#64748b';
 
@@ -82,6 +86,7 @@ export const Seat: React.FC<SeatProps> = React.memo(({
 
     return (
         <Circle
+            ref={seatRef}
             id={seat.id} // Important for drag logic
             x={seat.x}
             y={seat.y}
@@ -95,6 +100,20 @@ export const Seat: React.FC<SeatProps> = React.memo(({
             scaleX={scale}
             scaleY={scale}
             draggable={isDraggable}
+            dragBoundFunc={(pos) => {
+                const stage = seatRef.current?.getStage();
+                if (!stage) return pos;
+
+                // Transform absolute position to stage-relative position
+                const transform = stage.getAbsoluteTransform().copy().invert();
+                const localPos = transform.point(pos);
+
+                // Snap AND Clamp using central helper
+                const snappedLocal = getSnappedPos(localPos.x, localPos.y);
+
+                // Transform back to absolute screen coordinates for Konva
+                return stage.getAbsoluteTransform().point(snappedLocal);
+            }}
             listening={listening}
             onClick={handleClick}
             onTap={handleClick}

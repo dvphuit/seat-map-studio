@@ -4,6 +4,7 @@ import { useStageStore } from '../../stores/stageStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useHistoryStore } from '../../stores/historyStore';
 import Konva from 'konva';
+import { useSnapping } from '../../hooks/useSnapping';
 
 import type { Terrain } from '../../types';
 
@@ -57,6 +58,7 @@ const TerrainItem: React.FC<TerrainItemProps> = ({
 }) => {
     const shapeRef = useRef<Konva.Line>(null);
     const trRef = useRef<Konva.Transformer>(null);
+    const { getSnappedPos } = useSnapping();
     const { x, y, points, rotation, scaleX, scaleY, closed, color, opacity } = terrain;
 
     // Calculate bounding box to find the center
@@ -93,9 +95,10 @@ const TerrainItem: React.FC<TerrainItemProps> = ({
     const handleDragEnd = (e: Konva.KonvaEventObject<DragEvent>) => {
         // When offset is used, x and y represent the center point. 
         // We subtract the offset to store the "top-left" logical position consistent with points.
+        const snapped = getSnappedPos(e.target.x() - offsetX, e.target.y() - offsetY);
         useStageStore.getState().updateElement(activeStageId, terrain.id, {
-            x: e.target.x() - offsetX,
-            y: e.target.y() - offsetY,
+            x: snapped.x,
+            y: snapped.y,
         });
     };
 
@@ -134,6 +137,15 @@ const TerrainItem: React.FC<TerrainItemProps> = ({
                 shadowBlur={isSelected ? 10 : 0}
                 shadowOpacity={isSelected ? 0.5 : 0}
                 draggable={activeTool === 'select'}
+                dragBoundFunc={(pos) => {
+                    const stage = shapeRef.current?.getStage();
+                    if (!stage) return pos;
+
+                    const transform = stage.getAbsoluteTransform().copy().invert();
+                    const localPos = transform.point(pos);
+                    const snappedLocal = getSnappedPos(localPos.x, localPos.y);
+                    return stage.getAbsoluteTransform().point(snappedLocal);
+                }}
                 onClick={(e) => {
                     if (activeTool === 'select') {
                         e.cancelBubble = true;
