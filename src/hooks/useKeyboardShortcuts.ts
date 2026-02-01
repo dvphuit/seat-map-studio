@@ -6,6 +6,7 @@ import { useStageStore } from '../stores/stageStore';
 import { useSelectors } from './useSelectors';
 import { TOOLS } from '../constants/tools';
 import type { Seat } from '../types';
+import { getSeatLabel } from '../utils/labels';
 
 const PASTE_OFFSET = 20;
 
@@ -70,11 +71,16 @@ export const useKeyboardShortcuts = () => {
             e.preventDefault();
             if (clipboardRef.current.length > 0 && activeStageId) {
                 pushState();
-                const newSeats = clipboardRef.current.map(seat => ({
-                    ...seat,
-                    x: seat.x + PASTE_OFFSET,
-                    y: seat.y + PASTE_OFFSET
-                }));
+                const newSeats = clipboardRef.current.map(seat => {
+                    const newX = seat.x + PASTE_OFFSET;
+                    const newY = seat.y + PASTE_OFFSET;
+                    return {
+                        ...seat,
+                        x: newX,
+                        y: newY,
+                        label: getSeatLabel(newX, newY)
+                    };
+                });
                 addSeats(activeStageId, newSeats);
                 // Update clipboard to allow daisy-chain pasting
                 clipboardRef.current = newSeats;

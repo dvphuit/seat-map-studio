@@ -5,13 +5,14 @@ import { useHistoryStore } from '../stores/historyStore';
 import { useSelectors } from './useSelectors';
 import { useSnapping } from './useSnapping';
 import { useActivityLogStore } from '../stores/activityLogStore';
+import { getSeatLabel } from '../utils/labels';
 
 export const useSeatCreation = () => {
     const { activeTool, activeStage, defaultTierId } = useSelectors();
     const { addSeat, deleteSeat } = useSeatStore();
     const { pushState } = useHistoryStore();
     const { getSnappedPos } = useSnapping();
-    const [ghostPos, setGhostPos] = useState<{ x: number; y: number } | null>(null);
+    const [ghostPos, setGhostPos] = useState<{ x: number; y: number; label?: string } | null>(null);
 
     const handleMouseMove = useCallback((e: KonvaEventObject<MouseEvent>) => {
         if (activeTool !== 'seat:single') {
@@ -26,7 +27,10 @@ export const useSeatCreation = () => {
         if (!pointer) return;
 
         const snapped = getSnappedPos(pointer.x, pointer.y);
-        setGhostPos(snapped);
+        setGhostPos({
+            ...snapped,
+            label: getSeatLabel(snapped.x, snapped.y)
+        });
     }, [activeTool, getSnappedPos, ghostPos]);
 
     const handleMouseUp = useCallback((e: KonvaEventObject<MouseEvent>) => {
@@ -46,6 +50,7 @@ export const useSeatCreation = () => {
         if (!pointer) return;
 
         const snapped = getSnappedPos(pointer.x, pointer.y);
+        const autoLabel = getSeatLabel(snapped.x, snapped.y);
 
         // Check for collision with existing seats
         const collidingSeat = activeStage.elements.find(el =>
@@ -64,7 +69,7 @@ export const useSeatCreation = () => {
             y: snapped.y,
             tier: defaultTierId,
             status: 'available',
-            label: 'A-1' // Placeholder label logic
+            label: autoLabel
         });
     }, [activeTool, activeStage, getSnappedPos, addSeat]);
 

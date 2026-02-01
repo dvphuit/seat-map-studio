@@ -7,12 +7,13 @@ import type { Seat } from '../types';
 import { useEditorStore } from '../stores/editorStore';
 import { useSelectors } from './useSelectors';
 import { GRID_SIZE } from '../constants';
+import { getSeatLabel } from '../utils/labels';
 
 export const useSeatDrag = (selectedSeatIds: string[]) => {
     const { batchUpdate } = useSeatStore();
     const { pushState } = useHistoryStore();
     const { getSnappedPos } = useSnapping();
-    const { activeStageId, setIsDraggingSeat } = useEditorStore();
+    const { activeStageId, setIsDraggingSeat, selectSeats } = useEditorStore();
     const { activeStage } = useSelectors();
 
     // Store initial positions of ALL selected seats when drag starts
@@ -23,19 +24,12 @@ export const useSeatDrag = (selectedSeatIds: string[]) => {
         const draggedSeatId = e.target.attrs.id;
 
         console.log('[DEBUG:MOVE_SEATS] ========== DRAG START ==========');
-        console.log('[DEBUG:MOVE_SEATS] Drag initiated', {
-            draggedSeatId,
-            selectedSeatIds,
-            isInSelection: selectedSeatIds.includes(draggedSeatId),
-            totalSeatsInStage: seats.length,
-            selectedCount: selectedSeatIds.length,
-            timestamp: new Date().toISOString()
-        });
 
-        // Only allow drag if the target is part of the selection
+        let effectiveSelection = selectedSeatIds;
         if (!selectedSeatIds.includes(draggedSeatId)) {
-            console.log('[DEBUG:MOVE_SEATS] ❌ Dragged seat not in selection, aborting drag');
-            return;
+            console.log('[DEBUG:MOVE_SEATS] 💡 Dragged seat not in selection, auto-selecting');
+            selectSeats([draggedSeatId]);
+            effectiveSelection = [draggedSeatId];
         }
 
         isDraggingRef.current = true;
@@ -44,7 +38,7 @@ export const useSeatDrag = (selectedSeatIds: string[]) => {
 
         const positions: Record<string, { x: number; y: number }> = {};
         seats.forEach(seat => {
-            if (selectedSeatIds.includes(seat.id)) {
+            if (effectiveSelection.includes(seat.id)) {
                 positions[seat.id] = { x: seat.x, y: seat.y };
             }
         });
@@ -52,9 +46,9 @@ export const useSeatDrag = (selectedSeatIds: string[]) => {
 
         console.log('[DEBUG:MOVE_SEATS] ✅ Initial positions recorded', {
             seatCount: Object.keys(positions).length,
-            positions: Object.entries(positions).slice(0, 3).map(([id, pos]) => ({ id, ...pos }))
+            draggedId: draggedSeatId
         });
-    }, [selectedSeatIds, pushState]);
+    }, [selectedSeatIds, pushState, selectSeats, setIsDraggingSeat]);
 
     const handleDragMove = useCallback((e: KonvaEventObject<DragEvent>) => {
         if (!isDraggingRef.current) return;
@@ -116,7 +110,14 @@ export const useSeatDrag = (selectedSeatIds: string[]) => {
         }
 
         // Set leader position with clamped delta
-        draggedNode.position({ x: initialPos.x + dx, y: initialPos.y + dy });
+        const leaderPos = { x: initialPos.x + dx, y: initialPos.y + dy };
+        draggedNode.position(leaderPos);
+
+        // Update leader label visually
+        const leaderLabelNode = (draggedNode as any).findOne('.seat-label');
+        if (leaderLabelNode) {
+            leaderLabelNode.text(getSeatLabel(leaderPos.x, leaderPos.y));
+        }
 
         // Move other selected nodes relative to the leader
         const layer = draggedNode.getLayer();
@@ -127,7 +128,14 @@ export const useSeatDrag = (selectedSeatIds: string[]) => {
                 const start = initialPositionsRef.current[id];
                 if (node && start) {
                     // Apply same clamped delta to followers
-                    node.position({ x: start.x + dx, y: start.y + dy });
+                    const followerPos = { x: start.x + dx, y: start.y + dy };
+                    node.position(followerPos);
+
+                    // Update follower label visually
+                    const labelNode = (node as any).findOne('.seat-label');
+                    if (labelNode) {
+                        labelNode.text(getSeatLabel(followerPos.x, followerPos.y));
+                    }
                 }
             });
         }
@@ -221,7 +229,10 @@ export const useSeatDrag = (selectedSeatIds: string[]) => {
                     return; // Skip this seat
                 }
 
-                updates[id] = finalPos;
+                updates[id] = {
+                    ...finalPos,
+                    label: getSeatLabel(finalPos.x, finalPos.y)
+                };
             }
         });
 

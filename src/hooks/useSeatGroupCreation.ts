@@ -7,6 +7,7 @@ import { useSnapping } from './useSnapping';
 import { useActivityLogStore } from '../stores/activityLogStore';
 import type { Seat } from '../types';
 import { GRID_SIZE as SEAT_SPACING } from '../constants'; // Use GRID_SIZE as SEAT_SPACING for semantic clarity
+import { getSeatLabel } from '../utils/labels';
 
 export const useSeatGroupCreation = () => {
     const { activeTool, activeStage, defaultTierId } = useSelectors();
@@ -44,10 +45,13 @@ export const useSeatGroupCreation = () => {
 
             for (let i = 0; i < count; i++) {
                 const ratio = count === 1 ? 0 : i / (count - 1);
+                const x = startPos.x + dx * ratio;
+                const y = startPos.y + dy * ratio;
                 seats.push({
-                    x: startPos.x + dx * ratio,
-                    y: startPos.y + dy * ratio,
+                    x,
+                    y,
                     status: 'available',
+                    label: getSeatLabel(x, y),
                 });
             }
         } else if (tool === 'seat:region') {
@@ -56,10 +60,13 @@ export const useSeatGroupCreation = () => {
 
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
+                    const x = startPos.x + (dx >= 0 ? 1 : -1) * c * SEAT_SPACING;
+                    const y = startPos.y + (dy >= 0 ? 1 : -1) * r * SEAT_SPACING;
                     seats.push({
-                        x: startPos.x + (dx >= 0 ? 1 : -1) * c * SEAT_SPACING,
-                        y: startPos.y + (dy >= 0 ? 1 : -1) * r * SEAT_SPACING,
+                        x,
+                        y,
                         status: 'available',
+                        label: getSeatLabel(x, y),
                     });
                 }
             }
@@ -74,7 +81,7 @@ export const useSeatGroupCreation = () => {
         const pos = getPointerPos(e);
         setStartPos(pos);
         setIsDrawing(true);
-        setPreviewSeats([{ x: pos.x, y: pos.y, status: 'available' }]);
+        setPreviewSeats([{ x: pos.x, y: pos.y, status: 'available', label: getSeatLabel(pos.x, pos.y) }]);
     }, [activeTool]);
 
     const handleMouseMove = useCallback((e: KonvaEventObject<any>) => {
@@ -109,11 +116,15 @@ export const useSeatGroupCreation = () => {
                 useActivityLogStore.getState().addLog(`Overwrote ${collidingSeatIds.length} existing seats`, 'info');
             }
 
-            addSeats(activeStage.id, previewSeats.map(s => ({
-                ...s,
-                tier: defaultTierId,
-                label: 'New' // Placeholder
-            }) as Omit<Seat, 'id' | 'type' | 'z' | 'stageId'>));
+            addSeats(activeStage.id, previewSeats.map(s => {
+                const x = s.x ?? 0;
+                const y = s.y ?? 0;
+                return {
+                    ...s,
+                    tier: defaultTierId,
+                    label: getSeatLabel(x, y)
+                } as Omit<Seat, 'id' | 'type' | 'z' | 'stageId'>;
+            }));
         }
 
         setIsDrawing(false);

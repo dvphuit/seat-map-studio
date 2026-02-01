@@ -4,6 +4,7 @@ import { useSeatStore } from '../stores/seatStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { useSelectors } from './useSelectors';
 import { useSnapping } from './useSnapping';
+import { getSeatLabel } from '../utils/labels';
 
 const SEAT_DETECTION_TOLERANCE = 5;
 
@@ -49,7 +50,7 @@ export const useSeatPaint = () => {
                 y: snapped.y,
                 tier: defaultTierId,
                 status: 'available',
-                label: '' // Labels usually come later or auto-gen
+                label: getSeatLabel(snapped.x, snapped.y)
             });
         } else if (mode === 'erase' && existingSeat) {
             touchedPosRef.current.add(posKey);

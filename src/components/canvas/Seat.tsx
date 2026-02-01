@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { Circle } from 'react-konva';
+import { Circle, Group, Text } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type { Seat as SeatType } from '../../types';
 import Konva from 'konva';
@@ -99,45 +99,63 @@ export const Seat: React.FC<SeatProps> = React.memo(({
         });
     };
 
+    const radius = 14;
+
     return (
-        <Circle
-            ref={seatRef}
-            id={seat.id} // Important for drag logic
+        <Group
+            id={seat.id}
             x={seat.x}
             y={seat.y}
-            radius={14} // Standard radius
-            fill={fill}
-            stroke={stroke}
-            strokeWidth={isSelected ? 2 : 1}
-            shadowColor={shadowColor}
-            shadowBlur={shadowBlur}
-            shadowOffset={{ x: 0, y: 2 }}
-            scaleX={scale}
-            scaleY={scale}
             draggable={isDraggable}
             dragBoundFunc={(pos) => {
                 const stage = seatRef.current?.getStage();
                 if (!stage) return pos;
-
-                // Transform absolute position to stage-relative position
                 const transform = stage.getAbsoluteTransform().copy().invert();
                 const localPos = transform.point(pos);
-
-                // Snap AND Clamp using central helper
                 const snappedLocal = getSnappedPos(localPos.x, localPos.y);
-
-                // Transform back to absolute screen coordinates for Konva
                 return stage.getAbsoluteTransform().point(snappedLocal);
             }}
-            listening={listening}
+            onDragStart={onDragStart}
+            onDragMove={onDragMove}
+            onDragEnd={onDragEnd}
             onClick={handleClick}
             onTap={handleClick}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
-            onDragStart={onDragStart}
-            onDragMove={onDragMove}
-            onDragEnd={onDragEnd}
-            perfectDrawEnabled={false} // Optimization
-        />
+        >
+            <Circle
+                ref={seatRef}
+                x={0}
+                y={0}
+                radius={radius}
+                fill={fill}
+                stroke={stroke}
+                strokeWidth={isSelected ? 2 : 1}
+                shadowColor={shadowColor}
+                shadowBlur={shadowBlur}
+                shadowOffset={{ x: 0, y: 2 }}
+                scaleX={scale}
+                scaleY={scale}
+                listening={listening}
+                perfectDrawEnabled={false}
+            />
+            {seat.label && (
+                <Text
+                    name="seat-label"
+                    text={seat.label}
+                    x={-radius}
+                    y={-radius + 1}
+                    width={radius * 2}
+                    height={radius * 2}
+                    fontSize={8}
+                    fontStyle="bold"
+                    fill={isSelected ? '#ffffff' : 'rgba(255, 255, 255, 0.9)'}
+                    align="center"
+                    verticalAlign="middle"
+                    listening={false}
+                    fontFamily="Inter, sans-serif"
+                />
+            )}
+        </Group>
     );
 });

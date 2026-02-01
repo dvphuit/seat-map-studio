@@ -1,4 +1,4 @@
-import { Group, Rect, Circle, Star, Arrow, Line } from 'react-konva';
+import { Group, Rect, Circle, Star, Arrow, Line, Text } from 'react-konva';
 import { useEditorStore } from '../../stores/editorStore';
 import { SelectionBox } from './SelectionBox';
 import { useSnapping } from '../../hooks/useSnapping';
@@ -12,8 +12,8 @@ interface ToolPreviewsProps {
     drawingPoints: number[];
     drawingCursor: { x: number; y: number } | null;
     selectionBox: { x: number; y: number; width: number; height: number; startX?: number; startY?: number } | null;
-    ghostPos: { x: number; y: number } | null;
-    previewSeats: Array<{ x?: number; y?: number }>;
+    ghostPos: { x: number; y: number; label?: string } | null;
+    previewSeats: Array<{ x?: number; y?: number; label?: string }>;
     isGroupDrawing: boolean;
     isPainting: boolean;
 }
@@ -126,33 +126,68 @@ export const ToolPreviews: React.FC<ToolPreviewsProps> = ({
 
             {/* Ghost Seat for Single Mode */}
             {ghostPos && activeTool === 'seat:single' && (
-                <Circle
-                    x={ghostPos.x}
-                    y={ghostPos.y}
-                    radius={14}
-                    fill="rgba(59, 130, 246, 0.4)"
-                    stroke="#3b82f6"
-                    strokeWidth={1}
-                    dash={[4, 4]}
-                    listening={false}
-                />
+                <Group>
+                    <Circle
+                        x={ghostPos.x}
+                        y={ghostPos.y}
+                        radius={14}
+                        fill="rgba(59, 130, 246, 0.4)"
+                        stroke="#3b82f6"
+                        strokeWidth={1}
+                        dash={[4, 4]}
+                        listening={false}
+                    />
+                    {ghostPos.label && (
+                        <Text
+                            text={ghostPos.label}
+                            x={ghostPos.x - 14}
+                            y={ghostPos.y - 13}
+                            width={28}
+                            height={28}
+                            fontSize={8}
+                            fontStyle="bold"
+                            fill="rgba(255, 255, 255, 0.6)"
+                            align="center"
+                            verticalAlign="middle"
+                            listening={false}
+                            fontFamily="Inter, sans-serif"
+                        />
+                    )}
+                </Group>
             )}
 
             {/* Group Seat Creation Preview */}
             {previewSeats.length > 0 && (
                 <Group>
                     {previewSeats.map((s, i) => (
-                        <Circle
-                            key={i}
-                            x={s.x || 0}
-                            y={s.y || 0}
-                            radius={14}
-                            fill="rgba(59, 130, 246, 0.4)"
-                            stroke="#3b82f6"
-                            strokeWidth={1}
-                            dash={[4, 4]}
-                            listening={false}
-                        />
+                        <Group key={i}>
+                            <Circle
+                                x={s.x || 0}
+                                y={s.y || 0}
+                                radius={14}
+                                fill="rgba(59, 130, 246, 0.4)"
+                                stroke="#3b82f6"
+                                strokeWidth={1}
+                                dash={[4, 4]}
+                                listening={false}
+                            />
+                            {s.label && (
+                                <Text
+                                    text={s.label}
+                                    x={(s.x || 0) - 14}
+                                    y={(s.y || 0) - 13}
+                                    width={28}
+                                    height={28}
+                                    fontSize={8}
+                                    fontStyle="bold"
+                                    fill="rgba(255, 255, 255, 0.6)"
+                                    align="center"
+                                    verticalAlign="middle"
+                                    listening={false}
+                                    fontFamily="Inter, sans-serif"
+                                />
+                            )}
+                        </Group>
                     ))}
                     {isGroupDrawing && previewSeats[0] && (
                         <Line

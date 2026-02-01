@@ -9,6 +9,17 @@ const THEME_COLOR = '#3b82f6'; // distinct blue
 const BG_COLOR = '#050a14'; // very dark blue/black
 const GRID_COLOR = '#3b82f6'; // distinct blue (solid)
 
+// Helper for Row Labels (A, B, C... Z, AA, AB...)
+const getRowLabel = (index: number) => {
+    let label = '';
+    let i = index;
+    while (i >= 0) {
+        label = String.fromCharCode((i % 26) + 65) + label;
+        i = Math.floor(i / 26) - 1;
+    }
+    return label;
+};
+
 export const StageBackground: React.FC = () => {
     const { activeStage } = useSelectors();
 
@@ -77,6 +88,58 @@ export const StageBackground: React.FC = () => {
         );
     }, [activeStage]);
 
+    // Row and Column Labels (A-Z for rows, numbers for columns)
+    const Labels = useMemo(() => {
+        if (!activeStage) return null;
+        const { width, depth } = activeStage;
+        const size = GRID_SIZE;
+        const items = [];
+
+        // Row Labels (A, B, C...) - Left Side
+        // Draw at every horizontal grid line
+        for (let j = size; j < depth; j += size) {
+            const index = Math.round(j / size) - 1;
+            items.push(
+                <Text
+                    key={`row-label-${j}`}
+                    x={-35}
+                    y={j - 6}
+                    text={getRowLabel(index)}
+                    fontSize={11}
+                    fontStyle="bold"
+                    fill={THEME_COLOR}
+                    opacity={0.5}
+                    width={25}
+                    align="right"
+                    fontFamily="Inter, sans-serif"
+                />
+            );
+        }
+
+        // Column Labels (1, 2, 3...) - Top Side
+        // Draw at every vertical grid line
+        for (let i = size; i < width; i += size) {
+            const num = Math.round(i / size);
+            items.push(
+                <Text
+                    key={`col-label-${i}`}
+                    x={i - 15}
+                    y={-25}
+                    text={num.toString()}
+                    fontSize={11}
+                    fontStyle="bold"
+                    fill={THEME_COLOR}
+                    opacity={0.5}
+                    width={30}
+                    align="center"
+                    fontFamily="Inter, sans-serif"
+                />
+            );
+        }
+
+        return <Group>{items}</Group>;
+    }, [activeStage]);
+
     if (!activeStage) return null;
 
     const { width, depth, name } = activeStage;
@@ -138,6 +201,9 @@ export const StageBackground: React.FC = () => {
                 dash={[10, 10]}
                 opacity={0.6}
             />
+
+            {/* Labels Layer (Rulers) */}
+            {Labels}
 
             {/* 5. Top Badge Section (Centered on top edge) */}
             <Group x={centerX} y={0}>
