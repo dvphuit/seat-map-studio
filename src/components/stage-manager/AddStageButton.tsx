@@ -1,12 +1,14 @@
 import React from 'react';
 import { useStageStore } from '../../stores/stageStore';
 import { useHistoryStore } from '../../stores/historyStore';
+import { useTierStore } from '../../stores/tierStore';
 
 export const AddStageButton: React.FC = () => {
     const { addStage } = useStageStore();
     const { pushState } = useHistoryStore();
 
     const handleAddStage = () => {
+        const firstTierId = useTierStore.getState().tiers[0]?.id || 'standard';
         pushState();
         addStage({
             name: 'New Stage',
@@ -15,7 +17,7 @@ export const AddStageButton: React.FC = () => {
             gridColor: '#3b82f6',
             gridDensity: 50,
             snapStrength: 10,
-            defaultTier: 'Standard',
+            defaultTier: firstTierId,
             isVisible: true,
             lockAspectRatio: false,
             snapToGrid: true,

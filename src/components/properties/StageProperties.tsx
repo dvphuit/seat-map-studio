@@ -3,10 +3,10 @@ import { useSelectors } from '../../hooks/useSelectors';
 import { useStageStore } from '../../stores/stageStore';
 import { useHistoryStore } from '../../stores/historyStore';
 import { useTierStore } from '../../stores/tierStore';
-import { SliderControl } from './SliderControl';
 import { ConstraintToggles } from './ConstraintToggles';
 import { Section } from './shared/Section';
 import { NumberInput } from './shared/NumberInput';
+import { GRID_SIZE } from '../../constants';
 
 export const StageProperties: React.FC = () => {
     const { activeStage } = useSelectors();
@@ -19,15 +19,14 @@ export const StageProperties: React.FC = () => {
     return (
         <div className="flex flex-col gap-6 animate-in fade-in duration-500">
             <div className="space-y-5">
-                <Section title="Stage Settings" icon="settings_input_component">
-                    <SliderControl
-                        label="Grid Density"
-                        value={activeStage.gridDensity}
-                        onChange={(val) => {
-                            pushState();
-                            updateStage(activeStage.id, { gridDensity: val });
-                        }}
+                {/* <Section title="Stage Settings" icon="settings_input_component">
+                    <NumberInput
+                        label="Grid Density (Fixed)"
+                        value={GRID_SIZE}
+                        onChange={() => {}}
                         unit="px"
+                        readOnly
+                        disabled
                     />
 
                     <SliderControl
@@ -39,7 +38,7 @@ export const StageProperties: React.FC = () => {
                         }}
                         icon="sensors_off"
                     />
-                </Section>
+                </Section> */}
 
                 <Section title="Configuration" icon="tune">
                     <div className="space-y-2">
@@ -74,25 +73,27 @@ export const StageProperties: React.FC = () => {
                     </div>
                 </Section>
 
-                <Section title="Dimensions" icon="aspect_ratio">
+                <Section title="Dimensions (Seats)" icon="aspect_ratio">
                     <div className="grid grid-cols-2 gap-4">
                         <NumberInput
-                            label="Width"
-                            value={activeStage.width}
+                            label="Columns"
+                            value={Math.round(activeStage.width / GRID_SIZE) - 1}
                             onChange={(val) => {
                                 pushState();
-                                updateStage(activeStage.id, { width: val });
+                                updateStage(activeStage.id, { width: Math.round(val + 1) * GRID_SIZE });
                             }}
-                            unit="px"
+                            unit="cols"
+                            min={1}
                         />
                         <NumberInput
-                            label="Depth"
-                            value={activeStage.depth}
+                            label="Rows"
+                            value={Math.round(activeStage.depth / GRID_SIZE) - 1}
                             onChange={(val) => {
                                 pushState();
-                                updateStage(activeStage.id, { depth: val });
+                                updateStage(activeStage.id, { depth: Math.round(val + 1) * GRID_SIZE });
                             }}
-                            unit="px"
+                            unit="rows"
+                            min={1}
                         />
                     </div>
                 </Section>

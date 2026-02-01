@@ -8,7 +8,7 @@ import { useSnapping } from './useSnapping';
 const SEAT_DETECTION_TOLERANCE = 5;
 
 export const useSeatPaint = () => {
-    const { activeTool, activeStage, activeStageSeats } = useSelectors();
+    const { activeTool, activeStage, activeStageSeats, defaultTierId } = useSelectors();
     const { addSeat, deleteSeat } = useSeatStore();
     const { pushState } = useHistoryStore();
     const { getSnappedPos } = useSnapping();
@@ -47,7 +47,7 @@ export const useSeatPaint = () => {
             addSeat(activeStage.id, {
                 x: snapped.x,
                 y: snapped.y,
-                tier: activeStage.defaultTier,
+                tier: defaultTierId,
                 status: 'available',
                 label: '' // Labels usually come later or auto-gen
             });

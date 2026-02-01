@@ -1,5 +1,6 @@
 import { useStageStore } from '../stores/stageStore';
 import { useEditorStore } from '../stores/editorStore';
+import { useTierStore } from '../stores/tierStore';
 import { useMemo } from 'react';
 import type { Seat } from '../types';
 
@@ -27,6 +28,14 @@ export const useSelectors = () => {
     }, [activeStage, selectedSeatIds]);
 
     const activeTool = useEditorStore((state) => state.activeTool);
+    const tiers = useTierStore((state) => state.tiers);
+
+    const defaultTierId = useMemo(() => {
+        if (activeStage?.defaultTier && tiers.some(t => t.id === activeStage.defaultTier)) {
+            return activeStage.defaultTier;
+        }
+        return tiers[0]?.id || 'standard';
+    }, [activeStage, tiers]);
 
     return {
         activeStage,
@@ -34,5 +43,6 @@ export const useSelectors = () => {
         selectedSeats,
         selectedSeatIds,
         activeTool,
+        defaultTierId,
     };
 };

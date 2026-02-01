@@ -4,13 +4,13 @@ import { useSeatStore } from '../stores/seatStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { useSelectors } from './useSelectors';
 import { useSnapping } from './useSnapping';
+import { useActivityLogStore } from '../stores/activityLogStore';
 import type { Seat } from '../types';
-
-const SEAT_SPACING = 40; // Center to center distance
+import { GRID_SIZE as SEAT_SPACING } from '../constants'; // Use GRID_SIZE as SEAT_SPACING for semantic clarity
 
 export const useSeatGroupCreation = () => {
-    const { activeTool, activeStage } = useSelectors();
-    const { addSeats } = useSeatStore();
+    const { activeTool, activeStage, defaultTierId } = useSelectors();
+    const { addSeats, deleteSeats } = useSeatStore();
     const { pushState } = useHistoryStore();
     const { getSnappedPos } = useSnapping();
 
@@ -28,10 +28,17 @@ export const useSeatGroupCreation = () => {
 
     const calculateSeats = useCallback((currentPos: { x: number; y: number }, tool: string) => {
         const seats: Partial<Seat>[] = [];
-        const dx = currentPos.x - startPos.x;
-        const dy = currentPos.y - startPos.y;
+        let dx = currentPos.x - startPos.x;
+        let dy = currentPos.y - startPos.y;
 
         if (tool === 'seat:line') {
+            // Enforce axis alignment (orthogonality)
+            if (Math.abs(dx) >= Math.abs(dy)) {
+                dy = 0;
+            } else {
+                dx = 0;
+            }
+
             const distance = Math.sqrt(dx * dx + dy * dy);
             const count = Math.max(1, Math.floor(distance / SEAT_SPACING) + 1);
 
@@ -81,10 +88,30 @@ export const useSeatGroupCreation = () => {
         if (!isDrawing || !activeStage) return;
 
         if (previewSeats.length > 0) {
+            // Find collisions
+            const collidingSeatIds: string[] = [];
+
+            previewSeats.forEach(newSeat => {
+                const existing = activeStage.elements.find(e =>
+                    e.type === 'seat' &&
+                    Math.abs(e.x - (newSeat.x ?? 0)) < 25 && // Existing tolerance
+                    Math.abs(e.y - (newSeat.y ?? 0)) < 25
+                );
+                if (existing) {
+                    collidingSeatIds.push(existing.id);
+                }
+            });
+
             pushState();
+
+            if (collidingSeatIds.length > 0) {
+                deleteSeats(activeStage.id, collidingSeatIds);
+                useActivityLogStore.getState().addLog(`Overwrote ${collidingSeatIds.length} existing seats`, 'info');
+            }
+
             addSeats(activeStage.id, previewSeats.map(s => ({
                 ...s,
-                tier: activeStage.defaultTier,
+                tier: defaultTierId,
                 label: 'New' // Placeholder
             }) as Omit<Seat, 'id' | 'type' | 'z' | 'stageId'>));
         }

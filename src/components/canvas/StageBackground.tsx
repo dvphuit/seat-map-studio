@@ -3,10 +3,11 @@ import { Rect, Text, Group, Line, Circle, Shape } from 'react-konva';
 import Konva from 'konva';
 import { useSelectors } from '../../hooks/useSelectors';
 
+import { GRID_SIZE } from '../../constants';
+
 const THEME_COLOR = '#3b82f6'; // distinct blue
 const BG_COLOR = '#050a14'; // very dark blue/black
 const GRID_COLOR = '#3b82f6'; // distinct blue (solid)
-const GRID_SIZE = 50;
 
 export const StageBackground: React.FC = () => {
     const { activeStage } = useSelectors();
@@ -14,11 +15,11 @@ export const StageBackground: React.FC = () => {
     // Grid rendering optimization
     const GridShape = useMemo(() => {
         if (!activeStage) return null;
-        const { width, depth, gridColor, gridDensity } = activeStage;
+        const { width, depth, gridColor } = activeStage;
 
         // Use stage config or fallbacks
         const color = gridColor || GRID_COLOR;
-        const size = gridDensity || GRID_SIZE;
+        const size = GRID_SIZE; // Fixed 50px as per requirement
 
         return (
             <Shape
@@ -42,6 +43,33 @@ export const StageBackground: React.FC = () => {
                     }
 
                     // Konva specific drawing - uses props passed to Shape
+                    context.fillStrokeShape(shape);
+                }}
+                listening={false}
+            />
+        );
+    }, [activeStage]);
+
+    // Intersection dots rendering
+    const IntersectionDots = useMemo(() => {
+        if (!activeStage) return null;
+        const { width, depth, gridColor } = activeStage;
+        const color = gridColor || GRID_COLOR;
+        const size = GRID_SIZE;
+
+        return (
+            <Shape
+                fill={color}
+                opacity={0.3}
+                sceneFunc={(context, shape) => {
+                    context.beginPath();
+                    // Draw circles at every grid intersection
+                    for (let i = 0; i <= width; i += size) {
+                        for (let j = 0; j <= depth; j += size) {
+                            context.moveTo(i + 2, j);
+                            context.arc(i, j, 2, 0, Math.PI * 2, false);
+                        }
+                    }
                     context.fillStrokeShape(shape);
                 }}
                 listening={false}
@@ -81,6 +109,7 @@ export const StageBackground: React.FC = () => {
 
             {/* 2. The Grid (Dashed) */}
             {GridShape}
+            {IntersectionDots}
 
             {/* 3. Center Axes (Solid, Brighter) */}
             {/* Vertical Axis */}

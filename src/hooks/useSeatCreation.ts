@@ -4,10 +4,11 @@ import { useSeatStore } from '../stores/seatStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { useSelectors } from './useSelectors';
 import { useSnapping } from './useSnapping';
+import { useActivityLogStore } from '../stores/activityLogStore';
 
 export const useSeatCreation = () => {
-    const { activeTool, activeStage } = useSelectors();
-    const { addSeat } = useSeatStore();
+    const { activeTool, activeStage, defaultTierId } = useSelectors();
+    const { addSeat, deleteSeat } = useSeatStore();
     const { pushState } = useHistoryStore();
     const { getSnappedPos } = useSnapping();
     const [ghostPos, setGhostPos] = useState<{ x: number; y: number } | null>(null);
@@ -46,10 +47,22 @@ export const useSeatCreation = () => {
 
         const snapped = getSnappedPos(pointer.x, pointer.y);
 
+        // Check for collision with existing seats
+        const collidingSeat = activeStage.elements.find(el =>
+            el.type === 'seat' &&
+            Math.abs(el.x - snapped.x) < 25 && // Half grid size tolerance
+            Math.abs(el.y - snapped.y) < 25
+        );
+
+        if (collidingSeat) {
+            deleteSeat(activeStage.id, collidingSeat.id);
+            useActivityLogStore.getState().addLog('Overwrote existing seat', 'info');
+        }
+
         addSeat(activeStage.id, {
             x: snapped.x,
             y: snapped.y,
-            tier: activeStage.defaultTier,
+            tier: defaultTierId,
             status: 'available',
             label: 'A-1' // Placeholder label logic
         });

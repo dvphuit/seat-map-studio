@@ -35,7 +35,7 @@ export const useStageStore = create<StageState>((set) => ({
             gridColor: '#3b82f6',
             gridDensity: 50,
             snapStrength: 10,
-            defaultTier: 'Standard',
+            defaultTier: 'standard',
             isVisible: true,
             lockAspectRatio: false,
             snapToGrid: true,
@@ -152,15 +152,21 @@ export const useStageStore = create<StageState>((set) => ({
     },
 
     updateElements: (stageId, updates) => {
+        console.log('[stageStore] updateElements called', { stageId, updateCount: Object.keys(updates).length });
         set((state) => {
             const stage = state.stages[stageId];
-            if (!stage) return state;
+            if (!stage) {
+                console.error('[stageStore] Stage not found:', stageId);
+                return state;
+            }
+            const newElements = stage.elements.map(e => updates[e.id] ? { ...e, ...updates[e.id] } as StageElement : e);
+            console.log('[stageStore] Elements updated:', newElements.filter(e => e.type === 'seat').slice(0, 3));
             return {
                 stages: {
                     ...state.stages,
                     [stageId]: {
                         ...stage,
-                        elements: stage.elements.map(e => updates[e.id] ? { ...e, ...updates[e.id] } as StageElement : e)
+                        elements: newElements
                     }
                 }
             };
