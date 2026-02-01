@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Circle } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type { Seat as SeatType } from '../../types';
@@ -44,6 +44,21 @@ export const Seat: React.FC<SeatProps> = React.memo(({
     const shadowBlur = isSelected ? 15 : 2;
     const shadowColor = isSelected ? 'rgba(59, 130, 246, 0.5)' : 'rgba(0,0,0,0.3)';
     const scale = isSelected ? 1.2 : 1;
+
+    // Sync Konva node when selection state changes to prevent animation artifacts
+    useEffect(() => {
+        if (seatRef.current) {
+            seatRef.current.to({
+                fill: fill,
+                scaleX: scale,
+                scaleY: scale,
+                stroke: stroke,
+                strokeWidth: isSelected ? 2 : 1,
+                shadowBlur: shadowBlur,
+                duration: 0.1,
+            });
+        }
+    }, [isSelected, fill, scale, stroke, shadowBlur]);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleClick = (e: KonvaEventObject<any>) => {

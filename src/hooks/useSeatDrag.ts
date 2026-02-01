@@ -5,23 +5,41 @@ import { useHistoryStore } from '../stores/historyStore';
 import { useSnapping } from './useSnapping';
 import type { Seat } from '../types';
 import { useEditorStore } from '../stores/editorStore';
+import { useSelectors } from './useSelectors';
+import { GRID_SIZE } from '../constants';
 
 export const useSeatDrag = (selectedSeatIds: string[]) => {
     const { batchUpdate } = useSeatStore();
     const { pushState } = useHistoryStore();
-    const { getSnappedPos, clampToStage } = useSnapping();
-    const { activeStageId } = useEditorStore();
+    const { getSnappedPos } = useSnapping();
+    const { activeStageId, setIsDraggingSeat } = useEditorStore();
+    const { activeStage } = useSelectors();
 
     // Store initial positions of ALL selected seats when drag starts
     const initialPositionsRef = useRef<Record<string, { x: number; y: number }>>({});
     const isDraggingRef = useRef(false);
 
     const handleDragStart = useCallback((e: KonvaEventObject<DragEvent>, seats: Seat[]) => {
-        // Only allow drag if the target is part of the selection or if it's the only one
-        const draggedSeatId = e.target.attrs.id; // Assuming we set id on Konva node
-        if (!selectedSeatIds.includes(draggedSeatId)) return;
+        const draggedSeatId = e.target.attrs.id;
+
+        console.log('[DEBUG:MOVE_SEATS] ========== DRAG START ==========');
+        console.log('[DEBUG:MOVE_SEATS] Drag initiated', {
+            draggedSeatId,
+            selectedSeatIds,
+            isInSelection: selectedSeatIds.includes(draggedSeatId),
+            totalSeatsInStage: seats.length,
+            selectedCount: selectedSeatIds.length,
+            timestamp: new Date().toISOString()
+        });
+
+        // Only allow drag if the target is part of the selection
+        if (!selectedSeatIds.includes(draggedSeatId)) {
+            console.log('[DEBUG:MOVE_SEATS] ❌ Dragged seat not in selection, aborting drag');
+            return;
+        }
 
         isDraggingRef.current = true;
+        setIsDraggingSeat(true); // Prevent selection clearing
         pushState(); // Save state before mutation
 
         const positions: Record<string, { x: number; y: number }> = {};
@@ -31,6 +49,11 @@ export const useSeatDrag = (selectedSeatIds: string[]) => {
             }
         });
         initialPositionsRef.current = positions;
+
+        console.log('[DEBUG:MOVE_SEATS] ✅ Initial positions recorded', {
+            seatCount: Object.keys(positions).length,
+            positions: Object.entries(positions).slice(0, 3).map(([id, pos]) => ({ id, ...pos }))
+        });
     }, [selectedSeatIds, pushState]);
 
     const handleDragMove = useCallback((e: KonvaEventObject<DragEvent>) => {
@@ -42,33 +65,90 @@ export const useSeatDrag = (selectedSeatIds: string[]) => {
 
         // Make the dragged node snap visually
         const snapped = getSnappedPos(draggedNode.x(), draggedNode.y());
-        draggedNode.position(snapped);
 
         const initialPos = initialPositionsRef.current[draggedId];
         if (!initialPos) return;
 
-        const dx = snapped.x - initialPos.x;
-        const dy = snapped.y - initialPos.y;
+        let dx = snapped.x - initialPos.x;
+        let dy = snapped.y - initialPos.y;
+
+        console.log('[DEBUG:MOVE_SEATS] Drag move', {
+            draggedId,
+            currentPos: { x: draggedNode.x(), y: draggedNode.y() },
+            snappedPos: snapped,
+            initialPos,
+            rawDelta: { dx, dy }
+        });
+
+        // Calculate group bounds and clamp delta to prevent overlap at edges
+        const positions = Object.values(initialPositionsRef.current);
+        if (positions.length > 0 && activeStage) {
+            const minX = Math.min(...positions.map(p => p.x));
+            const maxX = Math.max(...positions.map(p => p.x));
+            const minY = Math.min(...positions.map(p => p.y));
+            const maxY = Math.max(...positions.map(p => p.y));
+
+            // Stage bounds with margins
+            const stageMinX = GRID_SIZE;
+            const stageMaxX = activeStage.width - GRID_SIZE;
+            const stageMinY = GRID_SIZE;
+            const stageMaxY = activeStage.depth - GRID_SIZE;
+
+            // Clamp dx/dy so entire group stays within bounds
+            const minDx = stageMinX - minX;
+            const maxDx = stageMaxX - maxX;
+            const oldDx = dx;
+            dx = Math.max(minDx, Math.min(dx, maxDx));
+
+            const minDy = stageMinY - minY;
+            const maxDy = stageMaxY - maxY;
+            const oldDy = dy;
+            dy = Math.max(minDy, Math.min(dy, maxDy));
+
+            if (dx !== oldDx || dy !== oldDy) {
+                console.log('[DEBUG:MOVE_SEATS] ⚠️  Delta clamped to bounds', {
+                    groupBounds: { minX, maxX, minY, maxY },
+                    stageBounds: { stageMinX, stageMaxX, stageMinY, stageMaxY },
+                    clampedDelta: { dx, dy },
+                    originalDelta: { dx: oldDx, dy: oldDy }
+                });
+            }
+        }
+
+        // Set leader position with clamped delta
+        draggedNode.position({ x: initialPos.x + dx, y: initialPos.y + dy });
 
         // Move other selected nodes relative to the leader
         const layer = draggedNode.getLayer();
         if (layer) {
-            selectedSeatIds.forEach(id => {
-                if (id === draggedId) return; // Leader already moved itself
+            Object.keys(initialPositionsRef.current).forEach(id => {
+                if (id === draggedId) return; // Leader already moved
                 const node = layer.findOne(`#${id}`);
                 const start = initialPositionsRef.current[id];
                 if (node && start) {
-                    // Clamp follower positions as well
-                    const newPos = clampToStage(start.x + dx, start.y + dy);
-                    node.position(newPos);
+                    // Apply same clamped delta to followers
+                    node.position({ x: start.x + dx, y: start.y + dy });
                 }
             });
         }
-    }, [selectedSeatIds, getSnappedPos, clampToStage]);
+    }, [getSnappedPos, activeStage]);
 
     const handleDragEnd = useCallback((e: KonvaEventObject<DragEvent>) => {
-        if (!isDraggingRef.current || !activeStageId) return;
+        console.log('[DEBUG:MOVE_SEATS] ========== DRAG END ==========');
+        console.log('[DEBUG:MOVE_SEATS] Drag ended', {
+            isDragging: isDraggingRef.current,
+            activeStageId,
+            initialPositionIds: Object.keys(initialPositionsRef.current),
+            timestamp: new Date().toISOString()
+        });
+
+        if (!isDraggingRef.current || !activeStageId) {
+            console.log('[DEBUG:MOVE_SEATS] ❌ Early return - isDragging:', isDraggingRef.current, 'activeStageId:', activeStageId);
+            setIsDraggingSeat(false);
+            return;
+        }
         isDraggingRef.current = false;
+        setIsDraggingSeat(false); // Allow selection clearing again
 
         const draggedNode = e.target;
         const draggedId = draggedNode.attrs.id;
@@ -78,24 +158,89 @@ export const useSeatDrag = (selectedSeatIds: string[]) => {
         const snapped = getSnappedPos(currentPos.x, currentPos.y);
 
         const initialPos = initialPositionsRef.current[draggedId];
-        if (!initialPos) return;
+        if (!initialPos) {
+            console.log('[DEBUG:MOVE_SEATS] ❌ No initial position for dragged seat:', draggedId);
+            return;
+        }
 
-        const dx = snapped.x - initialPos.x;
-        const dy = snapped.y - initialPos.y;
+        let dx = snapped.x - initialPos.x;
+        let dy = snapped.y - initialPos.y;
 
-        // Update Store State
+        console.log('[DEBUG:MOVE_SEATS] Raw Delta:', { dx, dy });
+
+        // Calculate group bounds from initial positions and clamp delta
+        // to prevent seats from stacking at edges
+        const positions = Object.values(initialPositionsRef.current);
+        if (positions.length > 0 && activeStage) {
+            const minX = Math.min(...positions.map(p => p.x));
+            const maxX = Math.max(...positions.map(p => p.x));
+            const minY = Math.min(...positions.map(p => p.y));
+            const maxY = Math.max(...positions.map(p => p.y));
+
+            // Stage bounds with margins (same as getSnappedPos)
+            const stageMinX = GRID_SIZE;
+            const stageMaxX = activeStage.width - GRID_SIZE;
+            const stageMinY = GRID_SIZE;
+            const stageMaxY = activeStage.depth - GRID_SIZE;
+
+            // Clamp dx so group stays within bounds
+            // Left bound: minX + dx >= stageMinX => dx >= stageMinX - minX
+            // Right bound: maxX + dx <= stageMaxX => dx <= stageMaxX - maxX
+            const minDx = stageMinX - minX;
+            const maxDx = stageMaxX - maxX;
+            dx = Math.max(minDx, Math.min(dx, maxDx));
+
+            // Clamp dy so group stays within bounds
+            const minDy = stageMinY - minY;
+            const maxDy = stageMaxY - maxY;
+            dy = Math.max(minDy, Math.min(dy, maxDy));
+        }
+
+        console.log('[DEBUG:MOVE_SEATS] Clamped Delta:', { dx, dy });
+
+        // Validate delta
+        if (!Number.isFinite(dx) || !Number.isFinite(dy)) {
+            console.error('[DEBUG:MOVE_SEATS] ❌ Invalid delta - using 0:', { dx, dy });
+            dx = 0;
+            dy = 0;
+        }
+
+        // Update Store State - use initialPositionsRef keys instead of selectedSeatIds
+        // because selection might be cleared during drag
         const updates: Record<string, Partial<Seat>> = {};
-        selectedSeatIds.forEach(id => {
+        Object.keys(initialPositionsRef.current).forEach(id => {
             const start = initialPositionsRef.current[id];
             if (start) {
-                // Apply same clamping to the final store update
-                const finalPos = clampToStage(start.x + dx, start.y + dy);
+                // Apply delta directly (already clamped above)
+                const rawPos = { x: start.x + dx, y: start.y + dy };
+                const finalPos = getSnappedPos(rawPos.x, rawPos.y);
+
+                // Validate final position
+                if (!Number.isFinite(finalPos.x) || !Number.isFinite(finalPos.y)) {
+                    console.error('[DEBUG:MOVE_SEATS] ❌ Invalid final position for seat:', id, finalPos);
+                    return; // Skip this seat
+                }
+
                 updates[id] = finalPos;
             }
         });
 
-        batchUpdate(activeStageId, updates);
-    }, [selectedSeatIds, getSnappedPos, clampToStage, batchUpdate, activeStageId]);
+        console.log('[DEBUG:MOVE_SEATS] ✅ Final updates to apply', {
+            updateCount: Object.keys(updates).length,
+            sampleUpdates: Object.entries(updates).slice(0, 3).map(([id, pos]) => ({ id, ...pos }))
+        });
+
+        if (Object.keys(updates).length === 0) {
+            console.log('[DEBUG:MOVE_SEATS] ⚠️  No valid updates, skipping batchUpdate');
+        } else {
+            batchUpdate(activeStageId, updates);
+            console.log('[DEBUG:MOVE_SEATS] ✅ batchUpdate called successfully');
+        }
+
+        // Clear the ref after use
+        initialPositionsRef.current = {};
+        console.log('[DEBUG:MOVE_SEATS] ========== DRAG COMPLETE ==========');
+    }, [getSnappedPos, batchUpdate, activeStageId, activeStage]);
 
     return { handleDragStart, handleDragMove, handleDragEnd };
 };

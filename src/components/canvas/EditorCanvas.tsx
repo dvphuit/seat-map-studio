@@ -28,7 +28,7 @@ import { ToolPreviews } from './ToolPreviews';
 export const EditorCanvas: React.FC = () => {
     const containerRef = useRef<HTMLDivElement>(null);
     const stageInstanceRef = useRef<Konva.Stage>(null);
-    const { zoom, pan, clearSelection, activeTool, isPreview, setTool, activeStageId } = useEditorStore();
+    const { zoom, pan, clearSelection, activeTool, isPreview, setTool, activeStageId, isDraggingSeat } = useEditorStore();
 
     const stageWidth = useStageStore((state) => activeStageId ? state.stages[activeStageId]?.width : null);
     const stageDepth = useStageStore((state) => activeStageId ? state.stages[activeStageId]?.depth : null);
@@ -122,11 +122,20 @@ export const EditorCanvas: React.FC = () => {
                     const isOutside = pos.x < 0 || pos.y < 0 || pos.x > stageDimensions.width || pos.y > stageDimensions.depth;
 
                     if (isOutside) {
+                        // If we have a selection box, it means we're doing lasso selection
+                        // Don't clear selection or return early - let lasso complete
+                        if (selectionBox) {
+                            return; // Let lasso selection handle this
+                        }
+
                         if (activeTool !== 'select') {
                             setTool('select');
                         } else {
                             // If tool is already select, and we click outside, clear selection
-                            clearSelection();
+                            // But NOT if we just finished dragging seats
+                            if (!isDraggingSeat) {
+                                clearSelection();
+                            }
                         }
                         return; // Stop further processing
                     }
@@ -138,7 +147,8 @@ export const EditorCanvas: React.FC = () => {
         handleTextClick(e);
 
         // If clicked on stage background (not a shape), clear selection
-        if (e.target === e.target.getStage() && activeTool === 'select' && !selectionBox) {
+        // But NOT if we just finished dragging seats or doing lasso selection
+        if (e.target === e.target.getStage() && activeTool === 'select' && !selectionBox && !isDraggingSeat) {
             clearSelection();
         }
     };

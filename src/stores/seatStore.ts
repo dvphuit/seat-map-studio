@@ -18,17 +18,37 @@ interface SeatActions {
 // that manipulate the StageStore.
 export const useSeatStore = create<SeatActions>(() => ({
     addSeat: (stageId, seatData) => {
+        console.log('[DEBUG:DRAW_SEATS] Adding single seat', {
+            stageId,
+            position: { x: seatData.x, y: seatData.y },
+            tier: seatData.tier,
+            label: seatData.label,
+            timestamp: new Date().toISOString()
+        });
         useStageStore.getState().addElement(stageId, {
             ...seatData,
             type: 'seat',
             z: 0 // Default Z for seats
         });
         useActivityLogStore.getState().addLog('Added a seat', 'success');
+        console.log('[DEBUG:DRAW_SEATS] Single seat added successfully');
     },
 
     addSeats: (stageId, seatsData) => {
+        console.log('[DEBUG:DRAW_SEATS] Adding multiple seats', {
+            stageId,
+            count: seatsData.length,
+            firstSeat: seatsData[0] ? { x: seatsData[0].x, y: seatsData[0].y, label: seatsData[0].label } : null,
+            lastSeat: seatsData[seatsData.length - 1] ? {
+                x: seatsData[seatsData.length - 1].x,
+                y: seatsData[seatsData.length - 1].y,
+                label: seatsData[seatsData.length - 1].label
+            } : null,
+            timestamp: new Date().toISOString()
+        });
         useStageStore.getState().addElements(stageId, seatsData.map(seat => ({ ...seat, type: 'seat', z: 0 })));
         useActivityLogStore.getState().addLog(`Added ${seatsData.length} seats`, 'success');
+        console.log('[DEBUG:DRAW_SEATS] Multiple seats added successfully');
     },
 
     updateSeat: (stageId, id, updates) => {
