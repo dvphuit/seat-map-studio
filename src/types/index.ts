@@ -104,6 +104,9 @@ export interface EditorState {
     zoom: number;
     pan: { x: number; y: number };
     isPreview: boolean;
+    // Flags to prevent selection clearing during drag/lasso operations
+    isDraggingSeat: boolean;
+    isLassoSelecting: boolean;
 }
 
 export interface ActivityLogEntry {

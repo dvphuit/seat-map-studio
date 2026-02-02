@@ -14,9 +14,11 @@ interface EditorStore extends EditorState {
     setPan: (pan: { x: number; y: number }) => void;
     togglePreview: () => void;
     selectShape: (id: string | null, type: StageElement['type'] | null) => void;
-    // Flag to prevent selection clearing during drag
+    // Flags to prevent selection clearing during drag/lasso operations
     isDraggingSeat: boolean;
     setIsDraggingSeat: (isDragging: boolean) => void;
+    isLassoSelecting: boolean;
+    setIsLassoSelecting: (isSelecting: boolean) => void;
 }
 
 export const useEditorStore = create<EditorStore>((set) => ({
@@ -29,6 +31,7 @@ export const useEditorStore = create<EditorStore>((set) => ({
     pan: { x: 280, y: 120 },
     isPreview: false,
     isDraggingSeat: false,
+    isLassoSelecting: false,
 
     setActiveStage: (id) => {
         set({ activeStageId: id, selectedSeatIds: [], selectedShapeId: null, selectedShapeType: null });
@@ -79,4 +82,5 @@ export const useEditorStore = create<EditorStore>((set) => ({
     togglePreview: () => set((state) => ({ isPreview: !state.isPreview })),
     selectShape: (id, type) => set({ selectedShapeId: id, selectedShapeType: type, selectedSeatIds: [] }),
     setIsDraggingSeat: (isDragging) => set({ isDraggingSeat: isDragging }),
+    setIsLassoSelecting: (isSelecting) => set({ isLassoSelecting: isSelecting }),
 }));

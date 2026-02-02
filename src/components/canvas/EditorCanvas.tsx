@@ -24,11 +24,13 @@ import { LabelLayer } from './LabelLayer';
 import { ShapeLayer } from './ShapeLayer';
 import { useShapeDrawing } from '../../hooks/useShapeDrawing';
 import { ToolPreviews } from './ToolPreviews';
+import { useCanvasFit } from '../../hooks/useCanvasFit';
 
 export const EditorCanvas: React.FC = () => {
     const containerRef = useRef<HTMLDivElement>(null);
     const stageInstanceRef = useRef<Konva.Stage>(null);
-    const { zoom, pan, clearSelection, activeTool, isPreview, setTool, activeStageId, isDraggingSeat } = useEditorStore();
+    const { zoom, pan, setZoom, setPan, clearSelection, activeTool, isPreview, setTool, activeStageId, isDraggingSeat, isLassoSelecting } = useEditorStore();
+    const savedEditState = useRef<{ zoom: number; pan: { x: number; y: number } } | null>(null);
 
     const stageWidth = useStageStore((state) => activeStageId ? state.stages[activeStageId]?.width : null);
     const stageDepth = useStageStore((state) => activeStageId ? state.stages[activeStageId]?.depth : null);
@@ -55,6 +57,7 @@ export const EditorCanvas: React.FC = () => {
     const { drawingPoints, drawingCursor, handleMouseMove: handleTerrainMove, handleClick: handleTerrainClick } = useTerrainDrawing();
     const { handleClick: handleTextClick } = useTextTool();
     const { drawingShape, handleMouseDown: handleShapeDown, handleMouseMove: handleShapeMove, handleMouseUp: handleShapeUp } = useShapeDrawing();
+    const { fitToScreen } = useCanvasFit();
 
     // Cursor Tracking
     const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
@@ -148,7 +151,7 @@ export const EditorCanvas: React.FC = () => {
 
         // If clicked on stage background (not a shape), clear selection
         // But NOT if we just finished dragging seats or doing lasso selection
-        if (e.target === e.target.getStage() && activeTool === 'select' && !selectionBox && !isDraggingSeat) {
+        if (e.target === e.target.getStage() && activeTool === 'select' && !selectionBox && !isDraggingSeat && !isLassoSelecting) {
             clearSelection();
         }
     };
@@ -174,6 +177,27 @@ export const EditorCanvas: React.FC = () => {
             resizeObserver.disconnect();
         };
     }, []);
+
+    // Auto-zoom stage in preview mode
+    useEffect(() => {
+        if (isPreview) {
+            // Save current state before switching to preview (only if not already saved)
+            if (!savedEditState.current) {
+                savedEditState.current = { zoom, pan };
+            }
+            if (size.width > 0 && size.height > 0) {
+                fitToScreen(size.width, size.height);
+            }
+        } else {
+            // Restore state when exiting preview
+            if (savedEditState.current) {
+                setZoom(savedEditState.current.zoom);
+                setPan(savedEditState.current.pan);
+                savedEditState.current = null;
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- we only want to trigger this on isPreview toggle or size change in preview
+    }, [isPreview, size.width, size.height, fitToScreen]);
 
     return (
         <div ref={containerRef} className="w-full h-full bg-slate-950 overflow-hidden relative focus:outline-none" tabIndex={0}>

@@ -4,7 +4,7 @@ import { useEditorStore } from '../stores/editorStore';
 import { useSelectors } from './useSelectors';
 
 export const useLassoSelection = () => {
-    const { activeTool, selectSeats, addToSelection, setIsDraggingSeat } = useEditorStore();
+    const { activeTool, selectSeats, addToSelection, setIsLassoSelecting } = useEditorStore();
     const { activeStageSeats } = useSelectors();
 
     const [selectionBox, setSelectionBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
@@ -13,44 +13,8 @@ export const useLassoSelection = () => {
     // Use a ref for selectionBox to access current value in events without closure issues
     const selectionBoxRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
 
-    const handleMouseDown = useCallback((e: KonvaEventObject<MouseEvent>) => {
-        if (activeTool !== 'select') return;
-        if (e.target.name() === 'seat') return;
-
-        console.log('[DEBUG:SELECT_REGION] Starting lasso selection');
-
-        isSelectingRef.current = true;
-        setIsDraggingSeat(true); // Reuse this flag to prevent Click-to-clear
-        const stage = e.target.getStage();
-        if (!stage) return;
-
-        const pointer = stage.getRelativePointerPosition();
-        if (!pointer) return;
-
-        const box = { x: pointer.x, y: pointer.y, width: 0, height: 0 };
-        startPosRef.current = { x: pointer.x, y: pointer.y };
-        selectionBoxRef.current = box;
-        setSelectionBox(box);
-    }, [activeTool]);
-
-    const handleMouseMove = useCallback((e: KonvaEventObject<MouseEvent>) => {
-        if (!isSelectingRef.current || !startPosRef.current) return;
-
-        const stage = e.target.getStage();
-        if (!stage) return;
-
-        const pointer = stage.getRelativePointerPosition();
-        if (!pointer) return;
-
-        const x = Math.min(startPosRef.current.x, pointer.x);
-        const y = Math.min(startPosRef.current.y, pointer.y);
-        const width = Math.abs(pointer.x - startPosRef.current.x);
-        const height = Math.abs(pointer.y - startPosRef.current.y);
-
-        const box = { x, y, width, height };
-        selectionBoxRef.current = box;
-        setSelectionBox(box);
-    }, []);
+    // Use a ref-stable version of finishSelection to prevent effect re-bindings
+    const finishSelectionRef = useRef<((isShift: boolean) => void) | null>(null);
 
     const finishSelection = useCallback((isShift: boolean) => {
         // Guard against double execution
@@ -94,28 +58,71 @@ export const useLassoSelection = () => {
         startPosRef.current = null;
         setSelectionBox(null);
 
-        // Small delay to ensure handleStageClick (which happens after mouseup) 
-        // also sees the flag as true, then we reset it.
-        setTimeout(() => {
-            setIsDraggingSeat(false);
-        }, 50);
-    }, [activeStageSeats, selectSeats, addToSelection, setIsDraggingSeat]);
+        // Use the new dedicated flag for lasso selection
+        setIsLassoSelecting(false);
+    }, [activeStageSeats, selectSeats, addToSelection, setIsLassoSelecting]);
+
+    // Keep ref in sync
+    useEffect(() => {
+        finishSelectionRef.current = finishSelection;
+    }, [finishSelection]);
+
+    const handleMouseDown = useCallback((e: KonvaEventObject<MouseEvent>) => {
+        if (activeTool !== 'select') return;
+        if (e.target.name() === 'seat') return;
+
+        console.log('[DEBUG:SELECT_REGION] Starting lasso selection');
+
+        isSelectingRef.current = true;
+        setIsLassoSelecting(true); // Use dedicated flag for lasso
+        const stage = e.target.getStage();
+        if (!stage) return;
+
+        const pointer = stage.getRelativePointerPosition();
+        if (!pointer) return;
+
+        const box = { x: pointer.x, y: pointer.y, width: 0, height: 0 };
+        startPosRef.current = { x: pointer.x, y: pointer.y };
+        selectionBoxRef.current = box;
+        setSelectionBox(box);
+    }, [activeTool, setIsLassoSelecting]);
+
+    const handleMouseMove = useCallback((e: KonvaEventObject<MouseEvent>) => {
+        if (!isSelectingRef.current || !startPosRef.current) return;
+
+        const stage = e.target.getStage();
+        if (!stage) return;
+
+        const pointer = stage.getRelativePointerPosition();
+        if (!pointer) return;
+
+        const x = Math.min(startPosRef.current.x, pointer.x);
+        const y = Math.min(startPosRef.current.y, pointer.y);
+        const width = Math.abs(pointer.x - startPosRef.current.x);
+        const height = Math.abs(pointer.y - startPosRef.current.y);
+
+        const box = { x, y, width, height };
+        selectionBoxRef.current = box;
+        setSelectionBox(box);
+    }, []);
 
     const handleMouseUp = useCallback((e: KonvaEventObject<MouseEvent>) => {
-        finishSelection(e.evt.shiftKey);
-    }, [finishSelection]);
+        if (finishSelectionRef.current) {
+            finishSelectionRef.current(e.evt.shiftKey);
+        }
+    }, []);
 
     useEffect(() => {
         const handleGlobalMouseUp = (e: MouseEvent) => {
-            if (isSelectingRef.current) {
+            if (isSelectingRef.current && finishSelectionRef.current) {
                 console.log('[DEBUG:SELECT_REGION] Global mouseup cleanup');
-                finishSelection(e.shiftKey);
+                finishSelectionRef.current(e.shiftKey);
             }
         };
 
         window.addEventListener('mouseup', handleGlobalMouseUp);
         return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
-    }, [finishSelection]);
+    }, []);
 
     return {
         selectionBox,
